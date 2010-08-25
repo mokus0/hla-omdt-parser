@@ -8,4 +8,5 @@ import Text.OMDT.Syntax
 $(mkLabels [ ''ObjectModel, ''ObjectModelHeader, ''POC
            , ''EnumeratedDataType, ''Enumerator
            , ''ComplexDataType, ''ComplexComponent
+           , ''Class, ''Attribute
            ])

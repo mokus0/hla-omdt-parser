@@ -6,6 +6,7 @@ import Text.OMDT.Syntax
 import Text.Parsec
 
 import qualified Data.Map as M
+import qualified Data.IntMap as I
 
 srcName = "fom_v4.2_17NOV2008.omd"
 
@@ -20,9 +21,8 @@ main = do
         Right objectModel -> do
             sequence_
                 [ do
-                    putStr name
-                    maybe (putStrLn "") (\note -> putStrLn $ concat [" [" ++ show note ++ "]"]) (footNote cdt)
-                    print (footNoted cdt)
+                    putStr (show num ++ ": ")
+                    print thing
                     putStrLn ""
-                | (name, cdt) <- M.assocs (complexDataTypes objectModel)
+                | (num, thing) <- I.assocs (classes objectModel)
                 ]

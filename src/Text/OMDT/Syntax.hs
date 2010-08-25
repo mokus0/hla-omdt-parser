@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 module Text.OMDT.Syntax where
 
 import Data.Record.Label
@@ -26,7 +25,7 @@ data Atom
 data ObjectModel = ObjectModel
     { omdtVersion           :: Version
     , header                :: ObjectModelHeader
-    , classes               :: I.IntMap     ()
+    , classes               :: I.IntMap     Class
     , complexDataTypes      :: M.Map String (FootNoted ComplexDataType)
     , enumeratedDataTypes   :: M.Map String (FootNoted EnumeratedDataType)
     , interactions          :: I.IntMap     ()
@@ -177,3 +176,91 @@ data AccuracyCondition
 
 newtype Cardinality = Cardinality String
     deriving (Eq, Show)
+
+data Class = Class
+    { className                 :: Maybe String
+    , classSuperClassID         :: Maybe Int
+    , classDescription          :: Maybe String
+    , classPSCapabilities       :: Maybe PSCapabilities
+    , classIsMOMType            :: Maybe Bool
+    , classAttributes           :: [Attribute]
+    , classUnparsedComponents   :: M.Map String [[SExpr]]
+    } deriving (Eq, Show)
+
+emptyClass = Class
+    { className                 = Nothing
+    , classSuperClassID         = Nothing
+    , classDescription          = Nothing
+    , classPSCapabilities       = Nothing
+    , classIsMOMType            = Nothing
+    , classAttributes           = []
+    , classUnparsedComponents   = M.empty
+    }
+
+data PSCapabilities = PSCapabilities
+    { pubCapability             :: Bool
+    , subCapability             :: Bool
+    } deriving (Eq, Show)
+
+data Attribute = Attribute
+    { attributeName                 :: Maybe String
+    , attributeDescription          :: Maybe String
+    , attributeDataType             :: Maybe String
+    , attributeAccuracy             :: Maybe Accuracy
+    , attributeAccuracyCondition    :: Maybe AccuracyCondition
+    , attributeCardinality          :: Maybe Cardinality
+    , attributeResolution           :: Maybe String
+    , attributeUnits                :: Maybe String
+    , attributeDelivery             :: Maybe Delivery
+    , attributeOrdering             :: Maybe MsgOrdering
+    , attributeTransferAccept       :: Maybe TransferAccept
+    , attributeRoutingSpace         :: Maybe String
+    , attributeUpdateReflect        :: Maybe UpdateReflect
+    , attributeUpdateType           :: Maybe UpdateType
+    , attributeUpdateCondition      :: Maybe String
+    , attributeUnparsedComponents   :: M.Map String [[SExpr]]
+    } deriving (Eq, Show)
+
+emptyAttribute = Attribute
+    { attributeName                 = Nothing
+    , attributeDescription          = Nothing
+    , attributeDataType             = Nothing
+    , attributeAccuracy             = Nothing
+    , attributeAccuracyCondition    = Nothing
+    , attributeCardinality          = Nothing
+    , attributeResolution           = Nothing
+    , attributeUnits                = Nothing
+    , attributeDelivery             = Nothing
+    , attributeOrdering             = Nothing
+    , attributeTransferAccept       = Nothing
+    , attributeUpdateType           = Nothing
+    , attributeUpdateCondition      = Nothing
+    , attributeRoutingSpace         = Nothing
+    , attributeUpdateReflect        = Nothing
+    , attributeUnparsedComponents   = M.empty
+    }
+
+data Delivery
+    = Reliable
+    | BestEffort
+    deriving (Eq, Ord, Enum, Bounded, Read, Show)
+
+data MsgOrdering
+    = Receive
+    deriving (Eq, Ord, Enum, Bounded, Read, Show)
+
+data TransferAccept = TransferAccept
+    { taTransfer        :: Bool
+    , taAccept          :: Bool
+    } deriving (Eq, Show)
+
+data UpdateReflect = UpdateReflect
+    { urUpdate          :: Bool
+    , urReflect         :: Bool
+    } deriving (Eq, Show)
+
+data UpdateType
+    = Static
+    | Conditional
+    | Periodic
+    deriving (Eq, Ord, Enum, Bounded, Read, Show)

@@ -2,10 +2,11 @@
 module Text.OMDT.Parser.Prim where
 
 import Text.OMDT.Lexer (Token(..), tokenAlexPosn, AlexPosn(..))
-import Text.OMDT.Syntax (FootNoted(..))
+import Text.OMDT.Syntax (FootNoted(..), SExpr(..), Atom(..))
 
 import Control.Monad (liftM)
 import Data.Char (toLower)
+import qualified Data.Map as M
 import Data.Record.Label
 import Data.Time (Day, fromGregorian)
 import Text.Parsec hiding (string)
@@ -62,6 +63,22 @@ tokenMaybe f = tokenPrim showTok (\pos tok _ -> updatePosToken pos tok) f
         showTok (String        posn s)   = s
         showTok (Int           posn s _) = s
         showTok (Frac          posn s _) = s
+
+-- * Unparsed S-Expressions
+
+sexpr = list <|> atom
+
+list = fmap List $ parens (many sexpr)
+atom = fmap Atom $ choice
+    [ fmap S anyString, fmap V version, fmap D date, fmap I int, fmap F frac, fmap N footnote]
+
+unparsed lens = do
+    openParen
+    tag <- anyString
+    things <- many sexpr
+    closeParen
+    
+    modifyP lens (M.insertWith (++) tag [things])
 
 -- * Primitive tokens from the lexer
 

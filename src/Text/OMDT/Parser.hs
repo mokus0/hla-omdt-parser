@@ -1,4 +1,7 @@
 {-# LANGUAGE NoMonomorphismRestriction, RecordWildCards #-}
+-- |This is an incomplete parser derived from a few specific instances of the
+-- data files.  I don't have access to the spec for the format, assuming it
+-- even exists.
 module Text.OMDT.Parser where
 
 import Text.OMDT.Parser.Prim
@@ -8,12 +11,14 @@ import Control.Category
 
 import Text.OMDT.Syntax
     ( emptyObjectModel, Type(..)
-    , SExpr(..), Atom(..)
     , FootNoted(FootNoted)
     , emptyEDT, emptyEnumerator
     , emptyCDT, emptyComplexComponent
     , Accuracy(..), AccuracyCondition(..)
     , Cardinality(..)
+    , emptyClass, emptyAttribute
+    , PSCapabilities(..), Delivery(..), MsgOrdering(..)
+    , TransferAccept(..), UpdateReflect(..), UpdateType(..)
     )
 import Text.OMDT.Syntax.Labels
 
@@ -69,7 +74,6 @@ omType = choice
     ]
 
 pocElements = focus lPoc $ do
-    -- parse as many as possible in a row to avoid redundant refocusing
     many1 $ choice 
         [ element "POCHonorificName" lHonorificName anyString
         , element "POCFirstName"     lFirstName     anyString
@@ -96,7 +100,7 @@ enumeratedDataTypeComponent = choice
     , element "StartValue"            lEdtStartValue    int
     , element "MOMEnumeratedDataType" lEdtIsMOMType     boolean
     , edtEnumeration <?> "Enumeration element"
-    , unparsedEDTComponent
+    , unparsed lEdtUnparsedComponents
     ]
 
 edtEnumeration  = tagged "Enumeration" $ do
@@ -110,14 +114,6 @@ enumeratorComponent = choice
     [ element "Description"     lEnumDescription    anyString
     , element "Representation"  lEnumRepresentation int
     ]
-
-unparsedEDTComponent = do
-    openParen
-    tag <- anyString
-    things <- many sexpr
-    closeParen
-    
-    modifyP lEdtUnparsedComponents (M.insertWith (++) tag [things])
 
 -- * Complex Data Types
 
@@ -134,7 +130,7 @@ complexDataTypeComponent = choice
     [ element "Description"         lCdtDescription anyString
     , element "MOMComplexDataType"  lCdtIsMOMType   boolean
     , cdtComplexComponent <?> "ComplexComponent element"
-    , cdtUnparsedComponent
+    , unparsed lCdtUnparsedComponents
     ]
 
 cdtComplexComponent = do
@@ -146,14 +142,6 @@ cdtComplexComponent = do
     
     modifyP lCdtComponents (component:)
 
-cdtUnparsedComponent = do
-    openParen
-    tag <- anyString
-    things <- many sexpr
-    closeParen
-    
-    modifyP lCdtUnparsedComponents (M.insertWith (++) tag [things])
-
 complexComponentComponent = choice 
     [ element "Description"         lCcDescription          anyString
     , element "DataType"            lCcDataType             anyString
@@ -162,7 +150,7 @@ complexComponentComponent = choice
     , element "Cardinality"         lCcCardinality          cardinality
     , element "Resolution"          lCcResolution           anyString
     , element "Units"               lCcUnits                anyString
-    , ccUnparsedComponent
+    , unparsed lCcUnparsedComponents
     ]
 
 accuracy = choice
@@ -175,17 +163,86 @@ accuracyCondition = choice
 
 cardinality = fmap Cardinality anyString
 
-ccUnparsedComponent = do
-    openParen
-    tag <- anyString
-    things <- many sexpr
-    closeParen
-    
-    modifyP lCcUnparsedComponents (M.insertWith (++) tag [things])
-
 -- * Classes
 
-objectClass = tagged "Class" (many sexpr) >> return ()
+objectClass = tagged "Class" $ do
+    classId <- tagged "ID" int
+    (cls, _) <- localState emptyClass $ do
+        many objectClassComponents
+        modifyP lClassAttributes reverse
+    
+    modifyP lClasses (I.insert classId cls)
+
+objectClassComponents = choice
+    [ element "Name"            lClassName           anyString
+    , element "SuperClass"      lClassSuperClassID   int
+    , element "Description"     lClassDescription    anyString
+    , element "PSCapabilities"  lClassPSCapabilities psCapabilities
+    , element "MOMClass"        lClassIsMOMType      boolean
+    , classAttribute <?> "Attribute element"
+    , unparsed lClassUnparsedComponents
+    ]
+
+psCapabilities = choice
+    [ string "PS" >> return (PSCapabilities True  True )
+    , string "P"  >> return (PSCapabilities True  False)
+    , string "S"  >> return (PSCapabilities False True )
+    , string "N"  >> return (PSCapabilities False False)
+    ]
+
+classAttribute = tagged "Attribute" $ do
+    (attribute, _) <- localState emptyAttribute $ do
+        many attributeComponents
+    
+    modifyP lClassAttributes (attribute:)
+
+attributeComponents = choice
+    [ element "Name"                lAttributeName              anyString
+    , element "Description"         lAttributeDescription       anyString
+    , element "DataType"            lAttributeDataType          anyString
+    , element "Accuracy"            lAttributeAccuracy          accuracy
+    , element "AccuracyCondition"   lAttributeAccuracyCondition accuracyCondition
+    , element "Cardinality"         lAttributeCardinality       cardinality
+    , element "Resolution"          lAttributeResolution        anyString
+    , element "Units"               lAttributeUnits             anyString
+    , element "DeliveryCategory"    lAttributeDelivery          delivery
+    , element "MessageOrdering"     lAttributeOrdering          ordering
+    , element "TransferAccept"      lAttributeTransferAccept    transferAccept
+    , element "RoutingSpace"        lAttributeRoutingSpace      anyString
+    , element "UpdateReflect"       lAttributeUpdateReflect     updateReflect
+    , element "UpdateCondition"     lAttributeUpdateCondition   anyString
+    , element "UpdateType"          lAttributeUpdateType        updateType
+    , unparsed lAttributeUnparsedComponents
+    ]
+
+delivery = choice
+    [ string "reliable"     >> return Reliable
+    , string "best_effort"  >> return BestEffort
+    ]
+
+ordering = choice
+    [ string "receive"      >> return Receive
+    ]
+
+transferAccept = choice
+    [ string "TA"   >> return (TransferAccept True  True )
+    , string "T"    >> return (TransferAccept True  False)
+    , string "A"    >> return (TransferAccept False True )
+    , string "N"    >> return (TransferAccept False False)
+    ]
+
+updateReflect = choice
+    [ string "UR"   >> return (UpdateReflect True  True )
+    , string "U"    >> return (UpdateReflect True  False)
+    , string "R"    >> return (UpdateReflect False True )
+    , string "N"    >> return (UpdateReflect False False)
+    ]
+
+updateType = choice
+    [ string "Static"       >> return Static
+    , string "Conditional"  >> return Conditional
+    , string "Periodic"     >> return Periodic
+    ]
 
 -- * Interactions
 
@@ -193,16 +250,12 @@ interactionClass = tagged "Interaction" (many sexpr) >> return ()
 
 -- * Notes
 
-note = tagged "Note" (many sexpr) >> return ()
+note = tagged "Note" $ do
+    num  <- tagged "NoteNumber" int
+    note <- tagged "NoteText"   anyString
+    
+    modifyP lNotes (I.insert num note)
 
 -- * Routing Spaces
 
 routingSpace = tagged "RoutingSpace" (many sexpr) >> return ()
-
--- * Unparsed S-Expression
-
-sexpr = list <|> atom
-
-list = fmap List $ parens (many sexpr)
-atom = fmap Atom $ choice
-    [ fmap S anyString, fmap V version, fmap D date, fmap I int, fmap F frac, fmap N footnote]
