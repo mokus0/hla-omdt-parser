@@ -1,118 +1,170 @@
-{-# LANGUAGE NoMonomorphismRestriction, RecordWildCards, TypeOperators #-}
+{-# LANGUAGE NoMonomorphismRestriction, RecordWildCards #-}
 module Text.OMDT.Parser where
+
+import Text.OMDT.Parser.Prim
 
 import Prelude hiding (id, (.))
 import Control.Category
 
-import Text.OMDT.Lexer (Token(..), tokenAlexPosn, AlexPosn(..))
-import Text.OMDT.Syntax as Syn
+import Text.OMDT.Syntax
+    ( emptyObjectModel, Type(..)
+    , SExpr(..), Atom(..)
+    , FootNoted(FootNoted)
+    , emptyEDT, emptyEnumerator
+    , ComplexDataType(..)
+    )
+import Text.OMDT.Syntax.Labels
 
 import Text.Parsec hiding (string)
 import Text.Parsec.Prim (ParsecT(..))
 
-import Control.Monad (liftM)
-import Data.Time (Day)
 import Data.Record.Label
 import qualified Data.IntMap as I
 import qualified Data.Map as M
 import qualified Data.Set as S
+import Data.Time (Day)
 import Data.Version (Version)
 
--- |Run a 'ParsecT' parser with a local state, potentially of a different 
--- type than the state of the surrounding context; sets the state to the 
--- provided value, executes the action, restores the old state and returns
--- the updated local state.
-localState :: Monad m => u -> ParsecT s u m a -> ParsecT s u' m (u,a)
-localState u action = mkPT $ \origState -> do
-    let u' = stateUser origState
-    result <- runParsecT action (origState {stateUser = u})
-    let alterReply (Ok a newState err) = Ok (stateUser newState, a) (newState {stateUser = u'}) err
-        alterReply (Error err)   = Error err
-    return (fmap (liftM alterReply) result)
+omdt = do
+    version <- tagged "OMDT" version <?> "OMDT element"
+    objectModel version <?> "ObjectModel element"
 
--- |Apply a 'lens' to focus the user state.  Essentially, hoists a part of the 
--- state (or some transformation of the state, changes to which can be pulled
--- back to the original state) to be the new top-level state.
-focus :: Monad m => (u :-> u') -> ParsecT s u' m a -> ParsecT s u m a
-focus lens action = do
-    orig <- getState
-    (new, result) <- localState (getL lens orig) action
-    putState (setL lens new orig)
-    return result
-
-setP :: Monad m => (u :-> t) -> t -> ParsecT s u m ()
-setP lens val = modifyState (setL lens val)
-
-updatePosToken srcPos token = case tokenAlexPosn token of
-    Nothing                     -> srcPos
-    Just (AlexPn byte row col)  -> flip setSourceLine row . flip setSourceColumn col $ srcPos
-
-tokenMaybe f = tokenPrim showTok (\pos tok _ -> updatePosToken pos tok) f
-    where
-        showTok (OpenParen     posn)     = "'('"
-        showTok (CloseParen    posn)     = "')'"
-        showTok (OpenBracket   posn)     = "'['"
-        showTok (CloseBracket  posn)     = "']'"
-        showTok (Slash         posn)     = "'/'"
-        showTok (Version       posn v)   = show v
-        showTok (String        posn s)   = s
-        showTok (Int           posn s _) = s
-        showTok (Frac          posn s _) = s
-
-openParen = tokenMaybe f
-    where f OpenParen{} = Just '('; p _ = Nothing
-closeParen = tokenMaybe f
-    where f CloseParen{} = Just ')'; p _ = Nothing
-openBracket = tokenMaybe f
-    where f OpenBracket{} = Just '['; p _ = Nothing
-closeBracket = tokenMaybe f
-    where f CloseBracket{} = Just ']'; p _ = Nothing
-slash = tokenMaybe f
-    where f Slash{} = Just '/'; p _ = Nothing
-
-stringWhere p = tokenMaybe f
-    where f (String _ s) | p s = Just s | otherwise = Nothing
-string s = stringWhere (s==)
-anyString = stringWhere (const True)
-
-version = tokenMaybe f
-    where f (Version _ v) = Just v; f _ = Nothing
-
-int = tokenMaybe f
-    where f (Int _ _ i) = Just (fromInteger i); f _ = Nothing
-frac = int <|> tokenMaybe f
-    where f (Frac _ _ f) = Just (fromRational f); f _ = Nothing
-
-parens thing = do
-    try openParen
-    x <- thing
-    closeParen
-    return x
-
-brackets thing = do
-    try openBracket
-    x <- thing
-    closeBracket
-    return x
-
-footnote = brackets int
-
-tagged tag content = parens $ do
-    string tag
-    content
-
-header = do
-    (hdr, _) <- localState emptyHeader (many headerElement)
+objectModel version = tagged "ObjectModel" $ do
+    (hdr, _) <- localState (emptyObjectModel version) (many objectModelElement)
     return hdr
 
-headerElement = choice [pocElement]
+objectModelElement = choice 
+    [ headerElement
+    , enumeratedDataType    <?> "EnumeratedDataType element"
+    , complexDataType       <?> "ComplexDataType element"
+    , objectClass           <?> "Class element"
+    , interactionClass      <?> "Interaction element"
+    , note                  <?> "Note element"
+    , routingSpace          <?> "RoutingSpace element"
+    ]
 
-pocElement = focus poc $ choice [pocHonorificName, pocFirstName, pocLastName, pocOrgName, pocPhone, pocEmail]
+-- * The header parts
 
-pocHonorificName = setP honorificName . Just =<< tagged "POCHonorificName" anyString
-pocFirstName     = setP firstName     . Just =<< tagged "POCFirstName"     anyString
-pocLastName      = setP lastName      . Just =<< tagged "POCLastName"      anyString
-pocOrgName       = setP orgName       . Just =<< tagged "POCOrgName"       anyString
-pocPhone         = setP phone         . Just =<< tagged "POCPhone"         anyString
-pocEmail         = setP email         . Just =<< tagged "POCEmail"         anyString
+headerElement = focus lHeader $ do
+    many1 $ choice 
+        [ omName        <?> "Name element"
+        , omVersion     <?> "VersionNumber element"
+        , omType        <?> "Type element"
+        , omPurpose     <?> "Purpose element"
+        , appDomain     <?> "ApplicationDomain element"
+        , omSponsOrg    <?> "SponsorOrgName element"
+        , pocElement
+        , momVers       <?> "MOMVersion element"
+        , modDate       <?> "ModificationDate element"
+        , omFEDname     <?> "FEDname element"
+        ]
+    return ()
 
+omName          = setP lObjectModelName   . Just =<< tagged "Name"              anyString
+omVersion       = setP lVersionNumber     . Just =<< tagged "VersionNumber"     anyString
+omType          = setP lOmType            . Just =<< tagged "Type" (choice
+    [ string "FOM"   >> return FOM
+    , string "SOM"   >> return SOM
+    , string "OTHER" >> return OTHER
+    ])
+omPurpose       = setP lPurpose           . Just =<< tagged "Purpose"           anyString
+appDomain       = setP lApplicationDomain . Just =<< tagged "ApplicationDomain" anyString
+omSponsOrg      = setP lSponsorOrgName    . Just =<< tagged "SponsorOrgName"    anyString
+
+pocElement = focus lPoc $ do
+    -- parse as many as possible in a row to avoid redundant refocusing
+    many1 $ choice 
+        [ pocHonorificName  <?> "POCHonorificName element"
+        , pocFirstName      <?> "POCFirstName element"
+        , pocLastName       <?> "POCLastName element"
+        , pocOrgName        <?> "POCOrgName element"
+        , pocPhone          <?> "POCPhone element"
+        , pocEmail          <?> "POCEmail element"
+        ]
+    return ()
+
+pocHonorificName = setP lHonorificName . Just =<< tagged "POCHonorificName" anyString
+pocFirstName     = setP lFirstName     . Just =<< tagged "POCFirstName"     anyString
+pocLastName      = setP lLastName      . Just =<< tagged "POCLastName"      anyString
+pocOrgName       = setP lOrgName       . Just =<< tagged "POCOrgName"       anyString
+pocPhone         = setP lPhone         . Just =<< tagged "POCPhone"         anyString
+pocEmail         = setP lEmail         . Just =<< tagged "POCEmail"         anyString
+
+momVers         = setP lMomVersion        . Just =<< tagged "MOMVersion"        anyString
+modDate         = setP lModificationDate  . Just =<< tagged "ModificationDate"  date
+omFEDname       = setP lFedName           . Just =<< tagged "FEDname"           anyString
+
+-- * Enumerated Data Types
+
+enumeratedDataType = tagged "EnumeratedDataType" $ do
+    (edt, FootNoted mbNote name) <- localState emptyEDT $ do
+        name <- tagged "Name" (footNoted anyString)
+        many enumeratedDataTypeComponent
+        return name
+    
+    modifyP lEnumeratedDataTypes (M.insert name (FootNoted mbNote edt))
+
+enumeratedDataTypeComponent = choice
+    [ edtDescription        <?> "Description element"
+    , edtAutoSequence       <?> "AutoSequence element"
+    , edtStartValue         <?> "StartValue element"
+    , edtIsMOMType          <?> "MOMEnumeratedDataType element"
+    , edtEnumeration        <?> "Enumeration element"
+    , unparsedEDTComponent
+    ]
+
+edtDescription  = setP lEdtDescription  . Just =<< tagged "Description"           anyString
+edtAutoSequence = setP lEdtAutoSequence . Just =<< tagged "AutoSequence"          boolean
+edtStartValue   = setP lEdtStartValue   . Just =<< tagged "StartValue"            int
+edtIsMOMType    = setP lEdtIsMOMType    . Just =<< tagged "MOMEnumeratedDataType" boolean
+edtEnumeration  = tagged "Enumeration" $ do
+    name <- tagged "Enumerator" anyString
+    (enum, _) <- localState emptyEnumerator $ do
+        many enumeratorComponent
+    
+    modifyP lEdtEnumeration (M.insert name enum)
+
+enumeratorComponent = choice [enumeratorDescription, enumeratorRepresentation]
+
+enumeratorDescription    = setP lEnumDescription    . Just =<< tagged "Description"    anyString
+enumeratorRepresentation = setP lEnumRepresentation . Just =<< tagged "Representation" int
+
+unparsedEDTComponent = do
+    openParen
+    tag <- anyString
+    things <- many sexpr
+    closeParen
+    
+    modifyP lEdtUnparsedComponents (M.insertWith (++) tag [things])
+
+-- * Complex Data Types
+
+complexDataType = tagged "ComplexDataType" $ do
+    FootNoted mbNote name <- tagged "Name" (footNoted anyString)
+    
+    content <- many sexpr
+    modifyP lComplexDataTypes (M.insert name (FootNoted mbNote (ComplexDataType Nothing content)))
+
+-- * Classes
+
+objectClass = tagged "Class" (many sexpr) >> return ()
+
+-- * Interactions
+
+interactionClass = tagged "Interaction" (many sexpr) >> return ()
+
+-- * Notes
+
+note = tagged "Note" (many sexpr) >> return ()
+
+-- * Routing Spaces
+
+routingSpace = tagged "RoutingSpace" (many sexpr) >> return ()
+
+-- * Unparsed S-Expression
+
+sexpr = list <|> atom
+
+list = fmap List $ parens (many sexpr)
+atom = fmap Atom $ choice
+    [ fmap S anyString, fmap V version, fmap D date, fmap I int, fmap F frac, fmap N footnote]

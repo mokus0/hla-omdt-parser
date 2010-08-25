@@ -8,16 +8,42 @@ import qualified Data.Set as S
 import Data.Time (Day)
 import Data.Version (Version)
 
-data ObjectModel a b = ObjectModel
-    { _omdtVersion           :: Version
-    , _header                :: ObjectModelHeader
-    , _classes               :: a
-    , _complexDataTypes      :: a
-    , _enumeratedDataTypes   :: a
-    , _interactions          :: a
-    , _notes                 :: I.IntMap String
-    , _routingSpaces         :: b
+data SExpr
+    = List [SExpr]
+    | Atom Atom
+    deriving (Eq, Show)
+
+data Atom
+    = S String
+    | V Version
+    | D Day
+    | I Integer
+    | F Rational
+    | N Integer
+    deriving (Eq, Show)
+
+
+data ObjectModel = ObjectModel
+    { omdtVersion           :: Version
+    , header                :: ObjectModelHeader
+    , classes               :: I.IntMap     ()
+    , complexDataTypes      :: M.Map String (FootNoted ComplexDataType)
+    , enumeratedDataTypes   :: M.Map String (FootNoted EnumeratedDataType)
+    , interactions          :: I.IntMap     ()
+    , notes                 :: I.IntMap     String
+    , routingSpaces         :: M.Map String ()
     } deriving (Eq, Show)
+
+emptyObjectModel v = ObjectModel
+    { omdtVersion           = v
+    , header                = emptyHeader
+    , classes               = I.empty
+    , complexDataTypes      = M.empty
+    , enumeratedDataTypes   = M.empty
+    , interactions          = I.empty
+    , notes                 = I.empty
+    , routingSpaces         = M.empty
+    }
 
 data Type
     = FOM
@@ -26,48 +52,89 @@ data Type
     deriving (Eq, Ord, Enum, Bounded, Show)
 
 data ObjectModelHeader = ObjectModelHeader
-    { _objectModelName   :: Maybe String
-    , _versionNumber     :: Maybe String
-    , _omType            :: Maybe Type
-    , _purpose           :: Maybe String
-    , _applicationDomain :: Maybe String
-    , _sponsorOrgName    :: Maybe String
-    , _poc               :: POC
-    , _modificationDate  :: Maybe Day
-    , _momVersion        :: Maybe String
-    , _fedName           :: Maybe String
+    { objectModelName   :: Maybe String
+    , versionNumber     :: Maybe String
+    , omType            :: Maybe Type
+    , purpose           :: Maybe String
+    , applicationDomain :: Maybe String
+    , sponsorOrgName    :: Maybe String
+    , poc               :: POC
+    , modificationDate  :: Maybe Day
+    , momVersion        :: Maybe String
+    , fedName           :: Maybe String
     } deriving (Eq, Show)
 
 emptyHeader = ObjectModelHeader
-    { _objectModelName   = Nothing
-    , _versionNumber     = Nothing
-    , _omType            = Nothing
-    , _purpose           = Nothing
-    , _applicationDomain = Nothing
-    , _sponsorOrgName    = Nothing
-    , _poc               = emptyPOC
-    , _modificationDate  = Nothing
-    , _momVersion        = Nothing
-    , _fedName           = Nothing
+    { objectModelName   = Nothing
+    , versionNumber     = Nothing
+    , omType            = Nothing
+    , purpose           = Nothing
+    , applicationDomain = Nothing
+    , sponsorOrgName    = Nothing
+    , poc               = emptyPOC
+    , modificationDate  = Nothing
+    , momVersion        = Nothing
+    , fedName           = Nothing
     }
 
 data POC = POC
-    { _honorificName     :: Maybe String
-    , _firstName         :: Maybe String
-    , _lastName          :: Maybe String
-    , _orgName           :: Maybe String
-    , _phone             :: Maybe String
-    , _email             :: Maybe String
+    { honorificName     :: Maybe String
+    , firstName         :: Maybe String
+    , lastName          :: Maybe String
+    , orgName           :: Maybe String
+    , phone             :: Maybe String
+    , email             :: Maybe String
     } deriving (Eq, Show)
 
 emptyPOC = POC
-    { _honorificName     = Nothing
-    , _firstName         = Nothing
-    , _lastName          = Nothing
-    , _orgName           = Nothing
-    , _phone             = Nothing
-    , _email             = Nothing
+    { honorificName     = Nothing
+    , firstName         = Nothing
+    , lastName          = Nothing
+    , orgName           = Nothing
+    , phone             = Nothing
+    , email             = Nothing
     }
 
+data FootNoted a = FootNoted
+    { footNote  :: Maybe Int
+    , footNoted :: a
+    } deriving (Eq, Show)
 
-$(mkLabels [''ObjectModel, ''ObjectModelHeader, ''POC])
+data EnumeratedDataType = EnumeratedDataType
+    { edtDescription        :: Maybe String
+    , edtAutoSequence       :: Maybe Bool
+    , edtStartValue         :: Maybe Integer
+    , edtIsMOMType          :: Maybe Bool
+    , edtEnumeration        :: M.Map String Enumerator
+    , edtUnparsedComponents :: M.Map String [[SExpr]]
+    } deriving (Eq, Show)
+
+emptyEDT = EnumeratedDataType
+    { edtDescription        = Nothing
+    , edtAutoSequence       = Nothing
+    , edtStartValue         = Nothing
+    , edtIsMOMType          = Nothing
+    , edtEnumeration        = M.empty
+    , edtUnparsedComponents = M.empty
+    }
+
+data Enumerator = Enumerator
+    { enumRepresentation    :: Maybe Int
+    , enumDescription       :: Maybe String
+    } deriving (Eq, Show)
+
+emptyEnumerator = Enumerator
+    { enumRepresentation    = Nothing
+    , enumDescription       = Nothing
+    }
+
+data ComplexDataType = ComplexDataType
+    { cdtDescription        :: Maybe String
+    , cdtUnparsedComponents :: [SExpr]
+    } deriving (Eq, Show)
+
+emptyCDT = ComplexDataType
+    { cdtDescription        = Nothing
+    , cdtUnparsedComponents = []
+    }
+

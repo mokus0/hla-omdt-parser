@@ -1,15 +1,34 @@
 module Main where
 
-import Text.OMDT.Lexer
-import Text.OMDT.ObjectParser
-import Text.OMDT.ObjectParser.Stage2
+import Text.OMDT.Lexer (alexScanTokens)
+import Text.OMDT.Parser (omdt)
+import Text.OMDT.Syntax
+import Text.Parsec
 
 import qualified Data.Map as M
 
-main = do
-    src <- readFile "fom_v4.2_17NOV2008.omd"
-    let tokens = alexScanTokens src
-        obj = omdObject tokens
-        omd = omdtObjectToObjectModel obj
+srcName = "fom_v4.2_17NOV2008.omd"
 
-    mapM_ print (namedElems (enumeratedDataTypes (objectModel omd)))
+main = do
+    src <- readFile srcName
+    let tokens = alexScanTokens src
+        --obj = omdObject tokens
+        --omd = omdtObjectToObjectModel obj
+    
+--    
+    
+    case runParser omdt () srcName tokens of
+        Left err -> do
+            -- mapM_ print tokens
+            print err
+        Right objectModel -> do
+            sequence_
+                [ do
+                    putStr name
+                    maybe (putStrLn "") (\note -> putStrLn $ concat [" [" ++ show note ++ "]"]) (footNote edt)
+                    print (footNoted edt)
+                    putStrLn ""
+                | (name, edt) <- M.assocs (enumeratedDataTypes objectModel)
+                ]
+    
+    --mapM_ print (namedElems (enumeratedDataTypes (objectModel omd)))
