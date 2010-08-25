@@ -130,11 +130,50 @@ emptyEnumerator = Enumerator
 
 data ComplexDataType = ComplexDataType
     { cdtDescription        :: Maybe String
-    , cdtUnparsedComponents :: [SExpr]
+    , cdtIsMOMType          :: Maybe Bool
+    , cdtComponents         :: [ComplexComponent]
+    , cdtUnparsedComponents :: M.Map String [[SExpr]]
     } deriving (Eq, Show)
 
 emptyCDT = ComplexDataType
     { cdtDescription        = Nothing
-    , cdtUnparsedComponents = []
+    , cdtIsMOMType          = Nothing
+    , cdtComponents         = []
+    , cdtUnparsedComponents = M.empty
     }
 
+data ComplexComponent = ComplexComponent
+    { ccName                :: String
+    , ccDescription         :: Maybe String
+    , ccDataType            :: Maybe String
+    , ccAccuracy            :: Maybe Accuracy
+    , ccAccuracyCondition   :: Maybe AccuracyCondition
+    , ccResolution          :: Maybe String
+    , ccUnits               :: Maybe String
+    , ccCardinality         :: Maybe Cardinality
+    , ccUnparsedComponents  :: M.Map String [[SExpr]]
+    } deriving (Eq, Show)
+
+emptyComplexComponent name = ComplexComponent
+    { ccName                = name
+    , ccDescription         = Nothing
+    , ccDataType            = Nothing
+    , ccAccuracy            = Nothing
+    , ccAccuracyCondition   = Nothing
+    , ccResolution          = Nothing
+    , ccUnits               = Nothing
+    , ccCardinality         = Nothing
+    , ccUnparsedComponents  = M.empty
+    }
+
+data Accuracy
+    = Perfect
+    deriving (Eq, Ord, Enum, Bounded, Read, Show)
+
+data AccuracyCondition
+    = Always
+    | PerfectCondition
+    deriving (Eq, Ord, Enum, Bounded, Read, Show)
+
+newtype Cardinality = Cardinality String
+    deriving (Eq, Show)

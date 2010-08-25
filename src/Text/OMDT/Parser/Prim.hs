@@ -34,6 +34,9 @@ focus lens action = do
     putState (setL lens new orig)
     return result
 
+
+element tag lens parseIt = (setP lens . Just =<< tagged tag parseIt) <?> (tag ++ " element")
+
 -- | Set the value of a 'lens' in the parsec user state
 setP :: Monad m => (u :-> t) -> t -> ParsecT s u m ()
 setP lens val = modifyState (setL lens val)

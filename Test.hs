@@ -21,8 +21,8 @@ main = do
             sequence_
                 [ do
                     putStr name
-                    maybe (putStrLn "") (\note -> putStrLn $ concat [" [" ++ show note ++ "]"]) (footNote edt)
-                    print (footNoted edt)
+                    maybe (putStrLn "") (\note -> putStrLn $ concat [" [" ++ show note ++ "]"]) (footNote cdt)
+                    print (footNoted cdt)
                     putStrLn ""
-                | (name, edt) <- M.assocs (enumeratedDataTypes objectModel)
+                | (name, cdt) <- M.assocs (complexDataTypes objectModel)
                 ]

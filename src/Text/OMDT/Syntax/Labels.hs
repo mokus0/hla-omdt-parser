@@ -5,4 +5,7 @@ import Data.Record.Label
 
 import Text.OMDT.Syntax
 
-$(mkLabels [''ObjectModel, ''ObjectModelHeader, ''POC, ''EnumeratedDataType, ''Enumerator, ''ComplexDataType])
+$(mkLabels [ ''ObjectModel, ''ObjectModelHeader, ''POC
+           , ''EnumeratedDataType, ''Enumerator
+           , ''ComplexDataType, ''ComplexComponent
+           ])

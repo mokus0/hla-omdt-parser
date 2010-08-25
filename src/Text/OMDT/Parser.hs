@@ -11,7 +11,9 @@ import Text.OMDT.Syntax
     , SExpr(..), Atom(..)
     , FootNoted(FootNoted)
     , emptyEDT, emptyEnumerator
-    , ComplexDataType(..)
+    , emptyCDT, emptyComplexComponent
+    , Accuracy(..), AccuracyCondition(..)
+    , Cardinality(..)
     )
 import Text.OMDT.Syntax.Labels
 
@@ -30,11 +32,11 @@ omdt = do
     objectModel version <?> "ObjectModel element"
 
 objectModel version = tagged "ObjectModel" $ do
-    (hdr, _) <- localState (emptyObjectModel version) (many objectModelElement)
+    (hdr, _) <- localState (emptyObjectModel version) (many objectModelElements)
     return hdr
 
-objectModelElement = choice 
-    [ headerElement
+objectModelElements = choice 
+    [ headerElements
     , enumeratedDataType    <?> "EnumeratedDataType element"
     , complexDataType       <?> "ComplexDataType element"
     , objectClass           <?> "Class element"
@@ -45,54 +47,38 @@ objectModelElement = choice
 
 -- * The header parts
 
-headerElement = focus lHeader $ do
+headerElements = focus lHeader $ do
     many1 $ choice 
-        [ omName        <?> "Name element"
-        , omVersion     <?> "VersionNumber element"
-        , omType        <?> "Type element"
-        , omPurpose     <?> "Purpose element"
-        , appDomain     <?> "ApplicationDomain element"
-        , omSponsOrg    <?> "SponsorOrgName element"
-        , pocElement
-        , momVers       <?> "MOMVersion element"
-        , modDate       <?> "ModificationDate element"
-        , omFEDname     <?> "FEDname element"
+        [ element "Name"                lObjectModelName    anyString
+        , element "VersionNumber"       lVersionNumber      anyString
+        , element "Type"                lOmType             omType
+        , element "Purpose"             lPurpose            anyString
+        , element "ApplicationDomain"   lApplicationDomain  anyString
+        , element "SponsorOrgName"      lSponsorOrgName     anyString
+        , element "MOMVersion"          lMomVersion         anyString
+        , element "ModificationDate"    lModificationDate   date
+        , element "FEDname"             lFedName            anyString
+        , pocElements
         ]
     return ()
 
-omName          = setP lObjectModelName   . Just =<< tagged "Name"              anyString
-omVersion       = setP lVersionNumber     . Just =<< tagged "VersionNumber"     anyString
-omType          = setP lOmType            . Just =<< tagged "Type" (choice
+omType = choice
     [ string "FOM"   >> return FOM
     , string "SOM"   >> return SOM
     , string "OTHER" >> return OTHER
-    ])
-omPurpose       = setP lPurpose           . Just =<< tagged "Purpose"           anyString
-appDomain       = setP lApplicationDomain . Just =<< tagged "ApplicationDomain" anyString
-omSponsOrg      = setP lSponsorOrgName    . Just =<< tagged "SponsorOrgName"    anyString
+    ]
 
-pocElement = focus lPoc $ do
+pocElements = focus lPoc $ do
     -- parse as many as possible in a row to avoid redundant refocusing
     many1 $ choice 
-        [ pocHonorificName  <?> "POCHonorificName element"
-        , pocFirstName      <?> "POCFirstName element"
-        , pocLastName       <?> "POCLastName element"
-        , pocOrgName        <?> "POCOrgName element"
-        , pocPhone          <?> "POCPhone element"
-        , pocEmail          <?> "POCEmail element"
+        [ element "POCHonorificName" lHonorificName anyString
+        , element "POCFirstName"     lFirstName     anyString
+        , element "POCLastName"      lLastName      anyString
+        , element "POCOrgName"       lOrgName       anyString
+        , element "POCPhone"         lPhone         anyString
+        , element "POCEmail"         lEmail         anyString
         ]
     return ()
-
-pocHonorificName = setP lHonorificName . Just =<< tagged "POCHonorificName" anyString
-pocFirstName     = setP lFirstName     . Just =<< tagged "POCFirstName"     anyString
-pocLastName      = setP lLastName      . Just =<< tagged "POCLastName"      anyString
-pocOrgName       = setP lOrgName       . Just =<< tagged "POCOrgName"       anyString
-pocPhone         = setP lPhone         . Just =<< tagged "POCPhone"         anyString
-pocEmail         = setP lEmail         . Just =<< tagged "POCEmail"         anyString
-
-momVers         = setP lMomVersion        . Just =<< tagged "MOMVersion"        anyString
-modDate         = setP lModificationDate  . Just =<< tagged "ModificationDate"  date
-omFEDname       = setP lFedName           . Just =<< tagged "FEDname"           anyString
 
 -- * Enumerated Data Types
 
@@ -105,18 +91,14 @@ enumeratedDataType = tagged "EnumeratedDataType" $ do
     modifyP lEnumeratedDataTypes (M.insert name (FootNoted mbNote edt))
 
 enumeratedDataTypeComponent = choice
-    [ edtDescription        <?> "Description element"
-    , edtAutoSequence       <?> "AutoSequence element"
-    , edtStartValue         <?> "StartValue element"
-    , edtIsMOMType          <?> "MOMEnumeratedDataType element"
-    , edtEnumeration        <?> "Enumeration element"
+    [ element "Description"           lEdtDescription   anyString
+    , element "AutoSequence"          lEdtAutoSequence  boolean
+    , element "StartValue"            lEdtStartValue    int
+    , element "MOMEnumeratedDataType" lEdtIsMOMType     boolean
+    , edtEnumeration <?> "Enumeration element"
     , unparsedEDTComponent
     ]
 
-edtDescription  = setP lEdtDescription  . Just =<< tagged "Description"           anyString
-edtAutoSequence = setP lEdtAutoSequence . Just =<< tagged "AutoSequence"          boolean
-edtStartValue   = setP lEdtStartValue   . Just =<< tagged "StartValue"            int
-edtIsMOMType    = setP lEdtIsMOMType    . Just =<< tagged "MOMEnumeratedDataType" boolean
 edtEnumeration  = tagged "Enumeration" $ do
     name <- tagged "Enumerator" anyString
     (enum, _) <- localState emptyEnumerator $ do
@@ -124,10 +106,10 @@ edtEnumeration  = tagged "Enumeration" $ do
     
     modifyP lEdtEnumeration (M.insert name enum)
 
-enumeratorComponent = choice [enumeratorDescription, enumeratorRepresentation]
-
-enumeratorDescription    = setP lEnumDescription    . Just =<< tagged "Description"    anyString
-enumeratorRepresentation = setP lEnumRepresentation . Just =<< tagged "Representation" int
+enumeratorComponent = choice 
+    [ element "Description"     lEnumDescription    anyString
+    , element "Representation"  lEnumRepresentation int
+    ]
 
 unparsedEDTComponent = do
     openParen
@@ -140,10 +122,66 @@ unparsedEDTComponent = do
 -- * Complex Data Types
 
 complexDataType = tagged "ComplexDataType" $ do
-    FootNoted mbNote name <- tagged "Name" (footNoted anyString)
+    (cdt, FootNoted mbNote name) <- localState emptyCDT $ do
+        name <- tagged "Name" (footNoted anyString)
+        many complexDataTypeComponent
+        modifyP lCdtComponents reverse
+        return name
     
-    content <- many sexpr
-    modifyP lComplexDataTypes (M.insert name (FootNoted mbNote (ComplexDataType Nothing content)))
+    modifyP lComplexDataTypes (M.insert name (FootNoted mbNote cdt))
+
+complexDataTypeComponent = choice
+    [ element "Description"         lCdtDescription anyString
+    , element "MOMComplexDataType"  lCdtIsMOMType   boolean
+    , cdtComplexComponent <?> "ComplexComponent element"
+    , cdtUnparsedComponent
+    ]
+
+cdtComplexComponent = do
+    component <- tagged "ComplexComponent" $ do
+        name <- tagged "FieldName" anyString
+        (cc, _) <- localState (emptyComplexComponent name) $ do
+            many complexComponentComponent
+        return cc
+    
+    modifyP lCdtComponents (component:)
+
+cdtUnparsedComponent = do
+    openParen
+    tag <- anyString
+    things <- many sexpr
+    closeParen
+    
+    modifyP lCdtUnparsedComponents (M.insertWith (++) tag [things])
+
+complexComponentComponent = choice 
+    [ element "Description"         lCcDescription          anyString
+    , element "DataType"            lCcDataType             anyString
+    , element "Accuracy"            lCcAccuracy             accuracy
+    , element "AccuracyCondition"   lCcAccuracyCondition    accuracyCondition
+    , element "Cardinality"         lCcCardinality          cardinality
+    , element "Resolution"          lCcResolution           anyString
+    , element "Units"               lCcUnits                anyString
+    , ccUnparsedComponent
+    ]
+
+accuracy = choice
+    [ string "perfect" >> return Perfect]
+
+accuracyCondition = choice
+    [ string "always"  >> return Always
+    , string "perfect" >> return PerfectCondition -- ???
+    ]
+
+cardinality = fmap Cardinality anyString
+
+ccUnparsedComponent = do
+    openParen
+    tag <- anyString
+    things <- many sexpr
+    closeParen
+    
+    modifyP lCcUnparsedComponents (M.insertWith (++) tag [things])
 
 -- * Classes
 
