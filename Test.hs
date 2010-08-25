@@ -12,10 +12,6 @@ srcName = "fom_v4.2_17NOV2008.omd"
 main = do
     src <- readFile srcName
     let tokens = alexScanTokens src
-        --obj = omdObject tokens
-        --omd = omdtObjectToObjectModel obj
-    
---    
     
     case runParser omdt () srcName tokens of
         Left err -> do
@@ -30,5 +26,3 @@ main = do
                     putStrLn ""
                 | (name, edt) <- M.assocs (enumeratedDataTypes objectModel)
                 ]
-    
-    --mapM_ print (namedElems (enumeratedDataTypes (objectModel omd)))
