@@ -16,5 +16,10 @@ description:            I'm too lame to describe my project
 
 Library
   hs-source-dirs:       src
-  exposed-modules:      
-  build-depends:        base >= 3
+  exposed-modules:      Text.OMDT
+  other-modules:        Text.OMDT.Lexer
+                        Text.OMDT.Parser
+                        Text.OMDT.Parser.Prim
+                        Text.OMDT.Syntax
+                        Text.OMDT.Syntax.Labels
+  build-depends:        base >= 3 && <5, array, containers, fclabels, parsec == 3.*, time
