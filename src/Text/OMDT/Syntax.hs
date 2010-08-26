@@ -13,12 +13,12 @@ data SExpr
     deriving (Eq, Show)
 
 data Atom
-    = S String
-    | V Version
-    | D Day
-    | I Integer
-    | F Rational
-    | N Integer
+    = S_ String
+    | V_ Version
+    | D_ Day
+    | I_ Integer
+    | F_ Rational
+    | N_ Integer
     deriving (Eq, Show)
 
 
@@ -28,9 +28,9 @@ data ObjectModel = ObjectModel
     , classes               :: I.IntMap     Class
     , complexDataTypes      :: M.Map String (FootNoted ComplexDataType)
     , enumeratedDataTypes   :: M.Map String (FootNoted EnumeratedDataType)
-    , interactions          :: I.IntMap     ()
+    , interactions          :: I.IntMap     Interaction
     , notes                 :: I.IntMap     String
-    , routingSpaces         :: M.Map String ()
+    , routingSpaces         :: M.Map String RoutingSpace
     } deriving (Eq, Show)
 
 emptyObjectModel v = ObjectModel
@@ -144,7 +144,7 @@ emptyCDT = ComplexDataType
 data ComplexComponent = ComplexComponent
     { ccName                :: String
     , ccDescription         :: Maybe String
-    , ccDataType            :: Maybe String
+    , ccDataType            :: Maybe (FootNoted String)
     , ccAccuracy            :: Maybe Accuracy
     , ccAccuracyCondition   :: Maybe AccuracyCondition
     , ccResolution          :: Maybe String
@@ -205,7 +205,7 @@ data PSCapabilities = PSCapabilities
 data Attribute = Attribute
     { attributeName                 :: Maybe String
     , attributeDescription          :: Maybe String
-    , attributeDataType             :: Maybe String
+    , attributeDataType             :: Maybe (FootNoted String)
     , attributeAccuracy             :: Maybe Accuracy
     , attributeAccuracyCondition    :: Maybe AccuracyCondition
     , attributeCardinality          :: Maybe Cardinality
@@ -254,13 +254,93 @@ data TransferAccept = TransferAccept
     , taAccept          :: Bool
     } deriving (Eq, Show)
 
-data UpdateReflect = UpdateReflect
-    { urUpdate          :: Bool
-    , urReflect         :: Bool
-    } deriving (Eq, Show)
+data UpdateReflect
+    = Update
+    | Reflect
+    | UpdateReflect
+    deriving (Eq, Ord, Enum, Bounded, Read, Show)
 
 data UpdateType
     = Static
     | Conditional
     | Periodic
     deriving (Eq, Ord, Enum, Bounded, Read, Show)
+
+data Interaction = Interaction
+    { interactionName               :: Maybe String
+    , interactionSuperInteractionID :: Maybe Int
+    , interactionIsMOMType          :: Maybe Bool
+    , interactionDescription        :: Maybe String
+    , interactionDelivery           :: Maybe Delivery
+    , interactionOrdering           :: Maybe MsgOrdering
+    , interactionISRType            :: Maybe ISRType
+    , interactionRoutingSpace       :: Maybe String
+    , interactionParameters         :: [Parameter]
+    , interactionUnparsedComponents :: M.Map String [[SExpr]]
+    } deriving (Eq, Show)
+
+emptyInteraction = Interaction
+    { interactionName               = Nothing
+    , interactionSuperInteractionID = Nothing
+    , interactionIsMOMType          = Nothing
+    , interactionDescription        = Nothing
+    , interactionDelivery           = Nothing
+    , interactionOrdering           = Nothing
+    , interactionISRType            = Nothing
+    , interactionRoutingSpace       = Nothing
+    , interactionParameters         = []
+    , interactionUnparsedComponents = M.empty
+    }
+
+data ISRType
+    = I
+    | S
+    | R
+    | IS
+    | IR
+    | N
+    deriving (Eq, Ord, Enum, Bounded, Read, Show)
+
+data Parameter = Parameter
+    { parameterName                 :: Maybe String
+    , parameterDescription          :: Maybe String
+    , parameterDataType             :: Maybe (FootNoted String)
+    , parameterAccuracy             :: Maybe Accuracy
+    , parameterAccuracyCondition    :: Maybe AccuracyCondition
+    , parameterResolution           :: Maybe String
+    , parameterUnits                :: Maybe String
+    , parameterCardinality          :: Maybe Cardinality
+    , parameterUnparsedComponents   :: M.Map String [[SExpr]]
+    } deriving (Eq, Show)
+
+emptyParameter = Parameter
+    { parameterName                 = Nothing
+    , parameterDescription          = Nothing
+    , parameterDataType             = Nothing
+    , parameterAccuracy             = Nothing
+    , parameterAccuracyCondition    = Nothing
+    , parameterResolution           = Nothing
+    , parameterUnits                = Nothing
+    , parameterCardinality          = Nothing
+    , parameterUnparsedComponents   = M.empty
+    }
+
+data RoutingSpace = RoutingSpace
+    { rSpaceDescription             :: Maybe String
+    , rSpaceDimensions              :: [Dimension]
+    , rSpaceUnparsedComponents      :: M.Map String [[SExpr]]
+    } deriving (Eq, Show)
+
+emptyRoutingSpace = RoutingSpace
+    { rSpaceDescription             = Nothing
+    , rSpaceDimensions              = []
+    , rSpaceUnparsedComponents      = M.empty
+    }
+
+data Dimension = Dimension
+    { dimensionUnparsedComponents   :: M.Map String [[SExpr]]
+    } deriving (Eq, Show)
+
+emptyDimension = Dimension
+    { dimensionUnparsedComponents   = M.empty
+    }

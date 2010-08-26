@@ -21,8 +21,8 @@ main = do
         Right objectModel -> do
             sequence_
                 [ do
-                    putStr (show num ++ ": ")
-                    print thing
+                    putStr (key ++ ": ")
+                    print val
                     putStrLn ""
-                | (num, thing) <- I.assocs (classes objectModel)
+                | (key, val) <- M.assocs (routingSpaces objectModel)
                 ]

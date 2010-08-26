@@ -19,6 +19,10 @@ import Text.OMDT.Syntax
     , emptyClass, emptyAttribute
     , PSCapabilities(..), Delivery(..), MsgOrdering(..)
     , TransferAccept(..), UpdateReflect(..), UpdateType(..)
+    , emptyInteraction, emptyParameter
+    , ISRType(..)
+    , RoutingSpace(..), Dimension(..)
+    , emptyRoutingSpace, emptyDimension
     )
 import Text.OMDT.Syntax.Labels
 
@@ -144,7 +148,7 @@ cdtComplexComponent = do
 
 complexComponentComponent = choice 
     [ element "Description"         lCcDescription          anyString
-    , element "DataType"            lCcDataType             anyString
+    , element "DataType"            lCcDataType             dataType
     , element "Accuracy"            lCcAccuracy             accuracy
     , element "AccuracyCondition"   lCcAccuracyCondition    accuracyCondition
     , element "Cardinality"         lCcCardinality          cardinality
@@ -152,6 +156,8 @@ complexComponentComponent = choice
     , element "Units"               lCcUnits                anyString
     , unparsed lCcUnparsedComponents
     ]
+
+dataType = footNoted anyString
 
 accuracy = choice
     [ string "perfect" >> return Perfect]
@@ -199,7 +205,7 @@ classAttribute = tagged "Attribute" $ do
 attributeComponents = choice
     [ element "Name"                lAttributeName              anyString
     , element "Description"         lAttributeDescription       anyString
-    , element "DataType"            lAttributeDataType          anyString
+    , element "DataType"            lAttributeDataType          dataType
     , element "Accuracy"            lAttributeAccuracy          accuracy
     , element "AccuracyCondition"   lAttributeAccuracyCondition accuracyCondition
     , element "Cardinality"         lAttributeCardinality       cardinality
@@ -232,10 +238,9 @@ transferAccept = choice
     ]
 
 updateReflect = choice
-    [ string "UR"   >> return (UpdateReflect True  True )
-    , string "U"    >> return (UpdateReflect True  False)
-    , string "R"    >> return (UpdateReflect False True )
-    , string "N"    >> return (UpdateReflect False False)
+    [ string "UR"   >> return UpdateReflect
+    , string "U"    >> return Update
+    , string "R"    >> return Reflect
     ]
 
 updateType = choice
@@ -246,7 +251,57 @@ updateType = choice
 
 -- * Interactions
 
-interactionClass = tagged "Interaction" (many sexpr) >> return ()
+interactionClass = tagged "Interaction" $ do
+    (interaction, intId) <- localState emptyInteraction $ do
+        intId <- tagged "ID" int
+        many interactionComponents
+        
+        modifyP lInteractionParameters reverse
+        return intId
+    
+    modifyP lInteractions (I.insert intId interaction)
+
+interactionComponents = choice
+    [ element "Name"                lInteractionName                anyString
+    , element "SuperInteraction"    lInteractionSuperInteractionID  int
+    , element "MOMInteraction"      lInteractionIsMOMType           boolean
+    , element "Description"         lInteractionDescription         anyString
+    , element "DeliveryCategory"    lInteractionDelivery            delivery
+    , element "MessageOrdering"     lInteractionOrdering            ordering
+    , element "ISRType"             lInteractionISRType             isrType
+    , element "RoutingSpace"        lInteractionRoutingSpace        anyString
+    , interactionParameter
+    , unparsed lInteractionUnparsedComponents
+    ]
+
+isrType = choice
+    [ string "I"    >> return I
+    , string "S"    >> return S
+    , string "R"    >> return R
+    , string "IS"   >> return IS
+    , string "IR"   >> return IR
+    , string "N"    >> return N
+    ]
+
+interactionParameter = tagged "Parameter" $ do
+    (param, _) <- localState emptyParameter $ do
+        many parameterComponents
+        
+        return ()
+    
+    modifyP lInteractionParameters (param:)
+
+parameterComponents = choice
+    [ element "Name"                lParameterName              anyString
+    , element "Description"         lParameterDescription       anyString
+    , element "DataType"            lParameterDataType          dataType
+    , element "Accuracy"            lParameterAccuracy          accuracy
+    , element "AccuracyCondition"   lParameterAccuracyCondition accuracyCondition
+    , element "Resolution"          lParameterResolution        anyString
+    , element "Units"               lParameterUnits             anyString
+    , element "Cardinality"         lParameterCardinality       cardinality
+    , unparsed lParameterUnparsedComponents
+    ]
 
 -- * Notes
 
@@ -258,4 +313,28 @@ note = tagged "Note" $ do
 
 -- * Routing Spaces
 
-routingSpace = tagged "RoutingSpace" (many sexpr) >> return ()
+routingSpace = tagged "RoutingSpace" $ do
+    (rSpace, name) <- localState emptyRoutingSpace $ do
+        name <- tagged "Name" anyString
+        many routingSpaceComponents
+        
+        modifyP lRSpaceDimensions reverse
+        return name
+    
+    modifyP lRoutingSpaces (M.insert name rSpace)
+
+routingSpaceComponents = choice
+    [ element "Description" lRSpaceDescription anyString
+    , routingSpaceDimension
+    , unparsed lRSpaceUnparsedComponents
+    ]
+
+routingSpaceDimension = tagged "Dimension" $ do
+    (dim, _) <- localState emptyDimension $ do
+        many dimensionComponents
+    
+    modifyP lRSpaceDimensions (dim:)
+
+dimensionComponents = choice
+    [ unparsed lDimensionUnparsedComponents
+    ]

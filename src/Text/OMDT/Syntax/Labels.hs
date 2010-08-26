@@ -9,4 +9,6 @@ $(mkLabels [ ''ObjectModel, ''ObjectModelHeader, ''POC
            , ''EnumeratedDataType, ''Enumerator
            , ''ComplexDataType, ''ComplexComponent
            , ''Class, ''Attribute
+           , ''Interaction, ''Parameter
+           , ''RoutingSpace, ''Dimension
            ])

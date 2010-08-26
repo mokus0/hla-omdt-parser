@@ -70,7 +70,7 @@ sexpr = list <|> atom
 
 list = fmap List $ parens (many sexpr)
 atom = fmap Atom $ choice
-    [ fmap S anyString, fmap V version, fmap D date, fmap I int, fmap F frac, fmap N footnote]
+    [ fmap S_ anyString, fmap V_ version, fmap D_ date, fmap I_ int, fmap F_ frac, fmap N_ footnote]
 
 unparsed lens = do
     openParen
