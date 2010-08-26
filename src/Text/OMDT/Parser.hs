@@ -21,8 +21,9 @@ import Text.OMDT.Syntax
     , TransferAccept(..), UpdateReflect(..), UpdateType(..)
     , emptyInteraction, emptyParameter
     , ISRType(..)
-    , RoutingSpace(..), Dimension(..)
+    , RoutingSpace(..), Dimension
     , emptyRoutingSpace, emptyDimension
+    , IntervalType(..), NormalizationFunction(..)
     )
 import Text.OMDT.Syntax.Labels
 
@@ -336,5 +337,23 @@ routingSpaceDimension = tagged "Dimension" $ do
     modifyP lRSpaceDimensions (dim:)
 
 dimensionComponents = choice
-    [ unparsed lDimensionUnparsedComponents
+    [ element "Name"                    lDimensionName          anyString
+    , element "DimensionType"           lDimensionType          dataType
+    , element "IntervalType"            lDimensionIntervalType  intervalType
+    , element "DimensionMaximum"        lDimensionMaximum       (int <|> readString)
+    , element "DimensionMinimum"        lDimensionMinimum       (int <|> readString)
+    , element "NormalizationFunction"   lDimensionNormalization normalizationFunction
+    , element "RangeSetUnits"           lDimensionRangeSetUnits anyString
+    , element "DimensionSet"            lDimensionSet           dimensionSet
+    , unparsed lDimensionUnparsedComponents
     ]
+
+intervalType = choice
+    [ string "Closed"   >> return Closed
+    ]
+
+normalizationFunction = choice
+    [ string "linear"   >> return Linear
+    ]
+
+dimensionSet = many1 (tagged "Member" anyString)

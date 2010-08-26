@@ -98,6 +98,13 @@ stringWhere p = tokenMaybe f
 string s = stringWhere (s==) <?> show s
 anyString = stringWhere (const True) <?> "string"
 
+readString = tokenMaybe f
+    where 
+        f (String _ s) = case reads s of
+            [(i,"")] -> Just i
+            _ -> Nothing
+        f _ = Nothing
+
 version = tokenMaybe f
     where f (Version _ v) = Just v; f _ = Nothing
 

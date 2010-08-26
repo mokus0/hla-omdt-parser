@@ -338,9 +338,33 @@ emptyRoutingSpace = RoutingSpace
     }
 
 data Dimension = Dimension
-    { dimensionUnparsedComponents   :: M.Map String [[SExpr]]
+    { dimensionName                 :: Maybe String
+    , dimensionType                 :: Maybe (FootNoted String)
+    , dimensionIntervalType         :: Maybe IntervalType
+    , dimensionMaximum              :: Maybe Integer
+    , dimensionMinimum              :: Maybe Integer
+    , dimensionNormalization        :: Maybe NormalizationFunction
+    , dimensionRangeSetUnits        :: Maybe String
+    , dimensionSet                  :: Maybe [String]
+    , dimensionUnparsedComponents   :: M.Map String [[SExpr]]
     } deriving (Eq, Show)
 
 emptyDimension = Dimension
-    { dimensionUnparsedComponents   = M.empty
+    { dimensionName                 = Nothing
+    , dimensionType                 = Nothing
+    , dimensionIntervalType         = Nothing
+    , dimensionMaximum              = Nothing
+    , dimensionMinimum              = Nothing
+    , dimensionNormalization        = Nothing
+    , dimensionRangeSetUnits        = Nothing
+    , dimensionSet                  = Nothing
+    , dimensionUnparsedComponents   = M.empty
     }
+
+data IntervalType
+    = Closed
+    deriving (Eq, Ord, Enum, Bounded, Read, Show)
+
+data NormalizationFunction
+    = Linear
+    deriving (Eq, Ord, Enum, Bounded, Read, Show)
