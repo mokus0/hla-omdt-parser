@@ -276,12 +276,8 @@ interactionComponents = choice
     ]
 
 isrType = choice
-    [ string "I"    >> return I
-    , string "S"    >> return S
-    , string "R"    >> return R
-    , string "IS"   >> return IS
-    , string "IR"   >> return IR
-    , string "N"    >> return N
+    [ string (show opt) >> return opt
+    | opt <- [minBound .. maxBound :: ISRType]
     ]
 
 interactionParameter = tagged "Parameter" $ do
