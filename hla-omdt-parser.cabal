@@ -22,4 +22,4 @@ Library
                         Text.OMDT.Parser.Prim
                         Text.OMDT.Syntax
                         Text.OMDT.Syntax.Labels
-  build-depends:        base >= 3 && <5, array, containers, fclabels, parsec == 3.*, time
+  build-depends:        base >= 3 && <5, array, containers, fclabels, parsec == 3.*, th-lift, time

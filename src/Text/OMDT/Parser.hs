@@ -168,7 +168,22 @@ accuracyCondition = choice
     , string "perfect" >> return PerfectCondition -- ???
     ]
 
-cardinality = fmap Cardinality anyString
+cardinality = fmap readCardinality anyString
+
+readCardinality "unbounded" = Cardinality 0 Nothing
+readCardinality c = case readsCardinality c of
+    [(c, "")] -> c
+    _ -> error ("readCardinality: no parse for " ++ show c)
+
+readsCardinality c = 
+    [ (Cardinality min max, rest)
+    | (min, rest) <- reads c
+    , (max, rest) <- case rest of 
+        ('+':rest) -> [(Nothing, rest)]
+        ('-':rest) -> [(Just max, rest) | (max,rest) <- reads rest]
+        _ -> [(Just min, rest)]
+    ]
+
 
 -- * Classes
 

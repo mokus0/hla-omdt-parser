@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Text.OMDT.Syntax where
 
 import Data.Record.Label
@@ -6,6 +7,7 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 import Data.Time (Day)
 import Data.Version (Version)
+import Language.Haskell.TH.Lift
 
 data SExpr
     = List [SExpr]
@@ -174,8 +176,10 @@ data AccuracyCondition
     | PerfectCondition
     deriving (Eq, Ord, Enum, Bounded, Read, Show)
 
-newtype Cardinality = Cardinality String
-    deriving (Eq, Show)
+data Cardinality = Cardinality
+    { minCount  :: Int
+    , maxCount  :: Maybe Int
+    } deriving (Eq, Show)
 
 data Class = Class
     { className                 :: Maybe String
@@ -368,3 +372,29 @@ data IntervalType
 data NormalizationFunction
     = Linear
     deriving (Eq, Ord, Enum, Bounded, Read, Show)
+
+$( fmap concat $ mapM deriveLift
+    [ ''SExpr, ''Atom
+    , ''ObjectModel, ''Type, ''ObjectModelHeader, ''POC
+    , ''FootNoted
+    
+    , ''EnumeratedDataType, ''Enumerator
+    
+    , ''ComplexDataType, ''ComplexComponent
+    , ''Accuracy, ''AccuracyCondition
+    , ''Cardinality
+    
+    , ''Class, ''Attribute
+    , ''PSCapabilities, ''Delivery, ''MsgOrdering
+    , ''TransferAccept, ''UpdateReflect, ''UpdateType
+    
+    , ''Interaction, ''Parameter
+    , ''ISRType
+    
+    , ''RoutingSpace, ''Dimension
+    , ''IntervalType, ''NormalizationFunction
+    
+    -- Orphans!
+    , ''Day, ''Version
+    , ''M.Map, ''I.IntMap
+    ])
